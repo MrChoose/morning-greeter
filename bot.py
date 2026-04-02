@@ -28,12 +28,19 @@ async def collect_new_speakers(
             continue
         users.add(msg.author.id)
     return users, newest_id
-async def resolve_display_name(guild: discord.Guild, user_id: int) -> str:
+async def resolve_display_name(
+    guild: discord.Guild,
+    bot: commands.Bot,
+    user_id: int,
+) -> str:
     try:
+        member = guild.get_member(user_id)
+        if member:
+            return member.display_name
         member = await guild.fetch_member(user_id)
         return member.display_name
     except discord.NotFound:
-        user = await guild.fetch_user(user_id)
+        user = await bot.fetch_user(user_id)
         return user.name
     except discord.HTTPException:
         return f"<@{user_id}>"
@@ -41,12 +48,14 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 @bot.command(name="早安")
-async def morning(ctx: commands.Context):
+async def morning(ctx: commands.Context[commands.Bot]):
     if ctx.author.bot:
         return
     if ctx.author.id != OWNER_ID:
         return
     if not isinstance(ctx.channel, discord.TextChannel):
+        return
+    if ctx.guild is None:
         return
     state = load_state()
     channel_key = str(ctx.channel.id)
@@ -67,7 +76,7 @@ async def morning(ctx: commands.Context):
     for uid in user_ids:
         if uid == OWNER_ID:
             continue
-        name = await resolve_display_name(ctx.guild, uid)
+        name = await resolve_display_name(ctx.guild, ctx.bot, uid)
         lines.append(f"{name} 早安！:mrchoo4Hi:")
     message = ""
     for line in lines:
